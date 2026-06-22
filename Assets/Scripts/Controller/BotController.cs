@@ -8,7 +8,7 @@ using UnityEngine;
 using Utilities;
 
 
-//Конфликт коммент из IDE
+//Коммент из гитхаба
 namespace Controller
 {
     public class BotController
