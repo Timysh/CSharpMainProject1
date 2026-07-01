@@ -18,9 +18,37 @@ namespace UnitBrains.Player
             float overheatTemperature = OverheatTemperature;
             ///////////////////////////////////////
             // Homework 1.3 (1st block, 3rd module)
-            ///////////////////////////////////////           
-            var projectile = CreateProjectile(forTarget);
-            AddProjectileToList(projectile, intoList);
+            ///////////////////////////////////////     
+
+            //Узнаём, какая сейчас температура
+            int currentTemp = GetTemperature();
+
+            //Если температура уже достигла порога перегрева (3) – стрелять нельзя
+            if (currentTemp >= overheatTemperature)
+            {
+                return; // выход из метода
+            }
+            else //Иначе производим выстрел: нагреваем оружие на 1 градус
+            {
+                IncreaseTemperature();
+            }
+
+            //Теперь температура выросла. Узнаём новое значение
+            int newTemp = GetTemperature();
+
+            //Количество снарядов должно быть равно новой температуре. Например, если стало 2 – выпускаем 2 снаряда
+            int shotsCount = newTemp;
+
+            //Создаём и добавляем снаряды в цикле
+            for (int i = 0; i < shotsCount; i++)
+            {
+                // Создаём один снаряд для указанной цели
+                BaseProjectile projectile = CreateProjectile(forTarget);
+                // Добавляем его в общий список
+                AddProjectileToList(projectile, intoList);
+            }
+
+
             ///////////////////////////////////////
         }
 
