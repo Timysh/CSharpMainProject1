@@ -46,10 +46,7 @@ namespace UnitBrains.Player
                 BaseProjectile projectile = CreateProjectile(forTarget);
                 // Добавляем его в общий список
                 AddProjectileToList(projectile, intoList);
-            }
-
-
-            ///////////////////////////////////////
+            }   
         }
 
         public override Vector2Int GetNextStep()
@@ -62,13 +59,59 @@ namespace UnitBrains.Player
             ///////////////////////////////////////
             // Homework 1.4 (1st block, 4rd module)
             ///////////////////////////////////////
+            ///
+
+
+            //Получаем список всех врагов, в которых можем стрелять
             List<Vector2Int> result = GetReachableTargets();
-            while (result.Count > 1)
+
+            //Если врагов нет – сразу возвращаем пустой список
+            if (result.Count == 0)
             {
-                result.RemoveAt(result.Count - 1);
+                return result;
             }
+
+            //Превращаем список в массив
+            Vector2Int[] targetsArray = result.ToArray();
+
+            //Создаём массив для расстояний от каждой цели до нашей базы
+            float[] distances = new float[targetsArray.Length];
+
+            //Заполняем массив расстояний
+            for (int i = 0; i < targetsArray.Length; i++)
+            {
+                Vector2Int currentTarget = targetsArray[i];
+                float distanceToBase = DistanceToOwnBase(currentTarget);
+                distances[i] = distanceToBase;
+            }
+
+            //Ищем наименьшее расстояние в массиве
+            float minDistance = float.MaxValue;
+            int indexOfMin = 0;
+
+            //Проходим по всем элементам массива расстояний
+            for (int i = 0; i < distances.Length; i++)
+            {
+                // Если текущее расстояние меньше, чем уже найденное минимальное,
+                // то обновляем минимум и запоминаем индекс
+                if (distances[i] < minDistance)
+                {
+                    minDistance = distances[i];
+                    indexOfMin = i;
+                }
+            }
+
+            //Теперь мы знаем индекс цели, которая находится ближе всех к базе
+            //Берём эту цель из массива targetsArray
+            Vector2Int closestTarget = targetsArray[indexOfMin];
+
+            //Очищаем список result и добавляем только одну цель.
+            result.Clear();
+            result.Add(closestTarget);
+
+            //Возвращаем результат – список с одной целью.
             return result;
-            ///////////////////////////////////////
+            
         }
 
         public override void Update(float deltaTime, float time)
