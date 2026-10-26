@@ -2,7 +2,7 @@
 using Model.Runtime.Projectiles;
 using System.Collections.Generic;
 using UnityEngine;
-using Utilities; // нужен для CalcNextStepTowards
+using Utilities;
 
 namespace UnitBrains.Player
 {
@@ -22,6 +22,25 @@ namespace UnitBrains.Player
         // Список целей, к которым идем
         private List<Vector2Int> _targetsToGoTo = new List<Vector2Int>();
 
+     
+        //Счетчик для выдачи номеров. static, чтобы быть общим для всех юнитов
+        private static int _unitCounter = 0;
+
+        //этоуникальный номер этого конкретного юнита
+        private int _unitNumber;
+
+        //максимум целей среди которых распределяем юнитов
+        private const int MaxTargetsToConsider = 3;
+
+        //конструктор,вызывается при создании каждого нового юнита
+        public SecondUnitBrain()
+        {
+            //Выдаем текущий номер
+            _unitNumber = _unitCounter;
+            //Увеличиваем счетчик для следующего юнита
+            _unitCounter = _unitCounter + 1;
+        }
+
         protected override void GenerateProjectiles(Vector2Int forTarget, List<BaseProjectile> intoList)
         {
             float overheatTemperature = OverheatTemperature;
@@ -29,7 +48,7 @@ namespace UnitBrains.Player
             //Узнаём текущую температуру
             int currentTemp = GetTemperature();
 
-            // Если температуар слишком большая, то не стреляем
+            //Если температуар слишком большая, то не стреляем
             if (currentTemp >= overheatTemperature)
             {
                 return;
@@ -62,7 +81,7 @@ namespace UnitBrains.Player
                 return unit.Pos;
             }
 
-            //Берём первую цель из списка
+            //Берём первую цель из списка (после нового алгоритма там лежит только наша цель)
             Vector2Int target = _targetsToGoTo[0];
 
             //Проверяем нахождение цели в зоне атаки
@@ -83,49 +102,25 @@ namespace UnitBrains.Player
 
         protected override List<Vector2Int> SelectTargets()
         {
-            // Создаём пустой список для результата
+            //Создаём пустой список для результата
             List<Vector2Int> result = new List<Vector2Int>();
-
-            //Получаем все цели
-            IEnumerable<Vector2Int> allTargetsEnumerable = GetAllTargets();
-
-            //Превращаем в список вручную
-            List<Vector2Int> allTargets = new List<Vector2Int>();
-            foreach (Vector2Int t in allTargetsEnumerable)
-            {
-                allTargets.Add(t);
-            }
 
             //Очищаем список целей, к которым надо идти
             _targetsToGoTo.Clear();
 
-            //Если цели есть, то ищем самую опасную (ближайшую к нашей базе)
-            if (allTargets.Count > 0)
+            //Получаем все цели
+            IEnumerable<Vector2Int> allTargetsEnumerable = GetAllTargets();
+
+            //Добавляем их заново в очищенный список
+            foreach (Vector2Int t in allTargetsEnumerable)
             {
-                // Сортируем список по расстоянию до нашей базы
-                SortByDistanceToOwnBase(allTargets);
-
-                // После сортировки первый элемент — самый близкий к нашей базе
-                Vector2Int mostDangerousTarget = allTargets[0];
-
-                // Записываем эту цель в список для движения
-                _targetsToGoTo.Add(mostDangerousTarget);
-
-                // Проверяем, в зоне ли атаки эта цель
-                bool inRange = IsTargetInRange(mostDangerousTarget);
-
-                if (inRange == true)
-                {
-                    //Если в зоне атак, то добавляем в результат и будем стрелять
-                    result.Add(mostDangerousTarget);
-                }
+                _targetsToGoTo.Add(t);
             }
-            else
-            {
-                //Если целей нет, то идём к базе противника
-                int enemyId;
 
-                // Определяем кто враг. Если мы юнит игрока, то враг бот, и наоборот
+            //Если в списке целей никого нет, то добавляем в список базу противника
+            if (_targetsToGoTo.Count == 0)
+            {
+                int enemyId;
                 if (IsPlayerUnitBrain == true)
                 {
                     enemyId = RuntimeModel.BotPlayerId;
@@ -135,19 +130,41 @@ namespace UnitBrains.Player
                     enemyId = RuntimeModel.PlayerId;
                 }
 
-                // Получаем позицию вражеской базы
                 Vector2Int enemyBasePosition = runtimeModel.RoMap.Bases[enemyId];
-
-                // Добавляем её в список целей для движения
                 _targetsToGoTo.Add(enemyBasePosition);
+            }
 
-                // Проверяем, в зоне ли атаки
-                bool inRange = IsTargetInRange(enemyBasePosition);
+            //Производим сортировку целей по дистанции до нашей базы
+            SortByDistanceToOwnBase(_targetsToGoTo);
 
-                if (inRange == true)
-                {
-                    result.Add(enemyBasePosition);
-                }
+            //Узнаем, сколько всего целей есть
+            int targetsCount = _targetsToGoTo.Count;
+
+            //Определяем, сколько целей мы вообще будем рассматривать. Три штуки, это максимаьлное
+            int targetsToConsider = MaxTargetsToConsider;
+            if (targetsCount < targetsToConsider)
+            {
+                //Если целей меньше 3, рассматриваем столько, сколько есть
+                targetsToConsider = targetsCount;
+            }
+
+            //Вычисляем индекс цели для этого юнита с помощью остатка от деления
+            int targetIndex = _unitNumber % targetsToConsider;
+
+            // Берем цель под нужным номером
+            Vector2Int chosenTarget = _targetsToGoTo[targetIndex];
+
+            //Очищаем список, так как для движения нам нужна только ОДНА выбранная цель
+            _targetsToGoTo.Clear();
+            _targetsToGoTo.Add(chosenTarget);
+
+            //Проверяем, в зоне ли атаки эта цель
+            bool inRange = IsTargetInRange(chosenTarget);
+
+            if (inRange == true)
+            {
+                //Если в зоне атаки, то добавляем в результат и будем стрелять
+                result.Add(chosenTarget);
             }
 
             // Возвращаем список целей для атаки
